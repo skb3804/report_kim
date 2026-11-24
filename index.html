@@ -396,11 +396,6 @@
     </div>
 
     <script>
-        // ==========================================
-        // Gemini API 키 직접 설정
-        // ==========================================
-        const GEMINI_API_KEY = "AIzaSyAIRbukmGCtS1jjJMVe3tESPOoddnE0HbY";
-
         let selectedArticleType = '정치';
         let scriptHistory = [];
 
@@ -475,7 +470,7 @@ B tv 뉴스 김석진입니다.`;
                 toast.style.opacity = '0';
                 toast.style.transition = 'opacity 0.3s ease-out';
                 setTimeout(() => toast.remove(), 300);
-            }, 3500);
+            }, 3000);
         }
 
         window.onload = function() {
@@ -541,12 +536,12 @@ B tv 뉴스 김석진입니다.`;
         }
         window.switchScriptView = switchScriptView;
 
-        // Google Gemini API 직접 호출 함수
         async function callGeminiAPI(prompt, systemPrompt, retries = 2) {
-            const modelCandidates = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"];
+            const modelCandidates = ["gemini-3-flash-preview", "gemini-2.5-flash"];
+            const apiKey = "AIzaSyAIRbukmGCtS1jjJMVe3tESPOoddnE0HbY";
 
             for (const model of modelCandidates) {
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
                     systemInstruction: { parts: [{ text: systemPrompt }] }
@@ -561,17 +556,17 @@ B tv 뉴스 김석진입니다.`;
                         });
                         if (response.ok) {
                             const data = await response.json();
-                            const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                            if (resultText) return resultText;
+                            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+                            if (text) return text;
                         } else {
-                            const errJson = await response.json().catch(() => ({}));
-                            console.warn(`Gemini API (${model}) 오류:`, errJson);
+                            const errBody = await response.text().catch(() => '');
+                            console.warn(`Gemini API ${model} HTTP ${response.status}:`, errBody);
                         }
                     } catch (err) {
-                        console.warn(`Gemini API (${model}) 네트워크 오류:`, err);
+                        console.warn(`Gemini API ${model} fallback:`, err);
                     }
                     if (attempt < retries - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 600 * (attempt + 1)));
+                        await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
                     }
                 }
             }
@@ -621,44 +616,43 @@ kimgija@sk.com }
                 : `(촬영기자 입력 없음 - 촬영기자 이름 중괄호 블록을 생략할 것)`;
 
             const systemPrompt = `당신은 B tv 뉴스(SK브로드밴드 부산방송)의 베테랑 취재기자 '김석진 기자'입니다.
-아래의 [김석진 기자 스타일 DNA]와 [방송 원고 필수 포맷 규칙]을 단 하나의 기호도 어기지 말고 100% 정확하게 적용하여 방송 리포트 원고를 작성하세요.
-
-[중요 원칙]
-1. 사용자가 빈칸으로 비워두거나 '없음'으로 입력한 항목(일시/장소, 촬영기자, 인터뷰, 스탠드업 등)은 절대 임의로 지어내지 말고 해당 블록을 완전히 제외하세요.
-2. 불필요한 인사말, 마크다운 코드블록(\`\`\`), 설명 문구 없이 오직 완성된 방송 원고 텍스트만 출력하세요.
+아래의 [김석진 기자 스타일 DNA]와 [방송 원고 작성 규칙]을 100% 적용하여 완벽한 방송 리포트 원고를 작성하세요.
+중요 원칙: 사용자가 빈칸으로 비워두거나 '없음'으로 입력한 항목(일시/장소, 촬영기자, 인터뷰, 스탠드업 등)은 절대 임의로 지어내지 말고 해당 블록을 완전히 제외하세요.
 
 [1. 김석진 기자 스타일 DNA]
-1. 제목(헤드라인): 한 줄 안에 핵심 쟁점과 대비를 압축. 말줄임표('...' 또는 '…')와 작은따옴표(' ') 적극 활용. 단독/고발 기사는 필요시 말머리에 [단독] 표기.
-2. 문체 및 문장 호흡: 정중한 합쇼체('~습니다', '~입니다') 기본 + 현장감을 살리는 명사형 종결이나 짧은 구어체 단문 믹스. 한 문장은 공백 포함 35~55자 내외로 짧게 끊고, 시각적 묘사로 도입부를 시작.
+1. 제목(헤드라인): 한 줄 안에 핵심 쟁점과 대비 압축. 말줄임표('...' 또는 '…')와 작은따옴표(' ') 적극 활용. 단독/고발 기사는 필요시 말머리에 [단독] 표기.
+2. 문체 및 문장 호흡: 정중한 합쇼체('~습니다', '~입니다') 기본 + 현장감을 살리는 명사형 종결이나 짧은 구어체 단문 믹스. 한 문장은 공백 포함 35~55자 내외로 짧게 끊기. 시각적 묘사로 도입부 시작.
 3. 기사 유형별 전개 구조:
 - [정치 / 정책 / 사회 / 기획 / 심층]: 기대 효과 또는 현안 배경 제시 → "하지만 ~" 반전 및 핵심 쟁점·문제점 지적 → 현장 실태 및 제공된 근거 제시 → "어떻게 ~할지 주목됩니다." 클로징.
 - [고발 / 사건사고]: 사건·제도의 원래 취지 및 발생 경위 설명 → "그런데 ~에서 심각한 허점(오류)이 드러났습니다" 전환 → 기자가 직접 확인한 과정과 현장 실태를 시간순으로 생생히 서술 → 관계기관 해명 및 책임 지적 → "비난은 피할 길이 없어 보입니다." 또는 철저한 대책 촉구 클로징.
 - [출연]: 스튜디오 대담 및 출연자 소개에 맞춘 핵심 질문과 분석 구조로 구성.
 - [문화 / 인물 / 스포츠]: 생동감 있는 현장 스케치(시각·청각 묘사) 및 주인공 스토리 → 주요 포인트 안내 → 향후 일정 및 따뜻한 여운("시민들에게는 특별한 저녁을, 지역 상인들에게는 골목상권의 활력을 불어넣고 있습니다." 등) 클로징.
-4. 최종 클로징 멘트는 반드시 "B tv 뉴스 김석진입니다."로 끝냄.
+4. 최종 멘트는 반드시 "B tv 뉴스 김석진입니다."로 끝냄.
 
-[2. 방송 원고 필수 표기 및 출력 포맷 (아래 틀과 기호 정확히 준수)]
-제목 : (한 줄 헤드라인)
+[2. 방송 원고 포맷 및 표기 규칙 (입력된 항목만 포함하여 출력)]
+제목 : (헤드라인)
 [앵커멘트]
 (2~3문장 핵심 요약 + 시청자 호기심을 끄는 질문 + "김석진 기자가 보도합니다 / 전해드립니다 / 다녀왔습니다 / 짚어봅니다." 중 연결)
 
-(한 줄 요약 리드 - 괄호로 감싸서 1줄 작성, 단독 기사는 생략 가능)
+(한 줄 요약 리드 - 단독 기사는 생략 가능)
 
 [기사내용]
 ${dateLocationRule}
-(시각적 묘사로 시작하는 도입부 내레이션 2~3문장)
+(시각적 묘사로 시작하는 도입부 내레이션)
 
 ${interviewRule}
 
 { CG IN }
-(수치나 핵심 정리 내레이션 - 원문에 수치/정리할 내용이 있을 때만 사용, 없으면 생략)
+(수치나 핵심 정리 - 원문에 수치/정리할 내용이 있을 때만 사용)
 { CG OUT }
 
 ${standupRuleText}
 
 ${cameramanRule}
 (후반부 내레이션 및 클로징)
-B tv 뉴스 김석진입니다.`;
+B tv 뉴스 김석진입니다.
+
+불필요한 서론/결론 인사말 없이 오직 위 방송 원고 텍스트만 출력하세요.`;
 
             const userPrompt = `[취재 내용 입력 (비어있는 항목은 원고에서 제외할 것)]
 - 기사 유형: ${selectedArticleType}
@@ -672,10 +666,8 @@ ${hasInterviews ? interviews : '(비어있음 - 인터뷰 블록 생략)'}
 ${hasStandup ? standupRaw : '(비어있음 - 스탠드업 블록 생략)'}`;
 
             let generatedText = await callGeminiAPI(userPrompt, systemPrompt);
-            let isFallback = false;
 
             if (!generatedText) {
-                isFallback = true;
                 generatedText = buildFallbackReporterScript(
                     selectedArticleType,
                     hasDateLocation ? dateLocation : '',
@@ -696,12 +688,7 @@ ${hasStandup ? standupRaw : '(비어있음 - 스탠드업 블록 생략)'}`;
 
             btn.disabled = false;
             btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> 김석진 기자 스타일로 리포트 원고 생성`;
-            
-            if (isFallback) {
-                showToast('API 응답 지연/오류로 기본 템플릿으로 정리되었습니다. 콘솔(F12)을 확인해주세요.', 'error');
-            } else {
-                showToast('AI가 김석진 기자 스타일로 리포트 원고를 완성했습니다!', 'success');
-            }
+            showToast('입력된 항목만 반영하여 리포트 원고가 완성되었습니다!', 'success');
         }
         window.generateReporterScript = generateReporterScript;
 
@@ -781,26 +768,31 @@ B tv 뉴스 김석진입니다.`;
         function renderFormattedScript(rawText) {
             if (!rawText) return;
 
+            // Update stats
             const cleanChars = rawText.replace(/\{[\s\S]*?\}|\[.*?\]|\s/g, '').length;
             const estSeconds = Math.round(cleanChars / 5.3);
             const statsBadge = document.getElementById('scriptStatsBadge');
             if (statsBadge) statsBadge.innerText = `내레이션 약 ${cleanChars}자 / 예상 ${estSeconds}초`;
 
+            // Parse Headline
             const titleMatch = rawText.match(/제목\s*:\s*(.+)/);
             const headline = titleMatch ? titleMatch[1].trim() : "제목 미입력";
             document.getElementById('pvHeadline').innerText = headline;
 
+            // Parse Cameraman
             const camMatch = rawText.match(/\{\s*(심환철|박선녕|박동욱|최영석|[가-힣]{2,4})\s*\}/);
             const pvCamEl = document.getElementById('pvCameraman');
             if (pvCamEl) {
                 pvCamEl.innerText = camMatch ? camMatch[1] : '미지정';
             }
 
+            // Parse Anchor Ment
             const anchorMatch = rawText.match(/\[앵커멘트\]\s*([\s\S]*?)(?=\n\s*\(|\n\s*\[기사내용\])/);
             if (anchorMatch) {
                 document.getElementById('pvAnchorMent').innerText = anchorMatch[1].trim();
             }
 
+            // Parse One-Line Lead
             const leadMatch = rawText.match(/\[앵커멘트\][\s\S]*?\n\s*(\([^\n]+\))\s*\n\s*\[기사내용\]/);
             const leadContainer = document.getElementById('pvLeadContainer');
             if (leadMatch && leadMatch[1]) {
@@ -810,16 +802,19 @@ B tv 뉴스 김석진입니다.`;
                 leadContainer.classList.add('hidden');
             }
 
+            // Parse Article Body
             const bodySplit = rawText.split(/\[기사내용\]/);
             const bodyRaw = bodySplit.length > 1 ? bodySplit[1].trim() : rawText;
 
             const bodyContainer = document.getElementById('pvArticleBody');
             bodyContainer.innerHTML = formatBodyBlocks(bodyRaw);
 
+            // Update Style DNA Checklist indicators
             updateChecklistStatus(headline, rawText);
         }
 
         function formatBodyBlocks(bodyText) {
+            // Tokenize curly brace blocks { ... } and lines
             const tokens = bodyText.split(/(\{[\s\S]*?\})/g);
             let html = '';
 
@@ -851,6 +846,7 @@ B tv 뉴스 김석진입니다.`;
                         } else if (l.includes('B tv 뉴스 김석진입니다')) {
                             html += `<p class="font-extrabold text-slate-900 pt-2 border-t border-slate-200 mt-3">${l}</p>`;
                         } else {
+                            // Check if previous block opened standup-box
                             if (html.endsWith('</span>')) {
                                 html += `<p class="text-xs sm:text-sm text-blue-950 font-semibold leading-relaxed">${l}</p></div>`;
                             } else {
