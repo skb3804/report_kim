@@ -396,6 +396,11 @@
     </div>
 
     <script>
+        // ==========================================
+        // Gemini API 키 직접 설정
+        // ==========================================
+        const GEMINI_API_KEY = "AIzaSyAIRbukmGCtS1jjJMVe3tESPOoddnE0HbY";
+
         let selectedArticleType = '정치';
         let scriptHistory = [];
 
@@ -536,29 +541,38 @@ B tv 뉴스 김석진입니다.`;
         }
         window.switchScriptView = switchScriptView;
 
-        // [수정됨] Vercel 서버리스 함수(/api/generate)를 호출하여 Gemini API 실행
+        // Google Gemini API 직접 호출 함수
         async function callGeminiAPI(prompt, systemPrompt, retries = 2) {
-            for (let attempt = 0; attempt < retries; attempt++) {
-                try {
-                    const response = await fetch('/api/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, systemPrompt })
-                    });
+            const modelCandidates = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"];
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.text) return data.text;
-                    } else {
-                        const errData = await response.json().catch(() => ({}));
-                        console.warn('Vercel API 응답 오류:', errData.error || response.status);
+            for (const model of modelCandidates) {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                for (let attempt = 0; attempt < retries; attempt++) {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                            if (resultText) return resultText;
+                        } else {
+                            const errJson = await response.json().catch(() => ({}));
+                            console.warn(`Gemini API (${model}) 오류:`, errJson);
+                        }
+                    } catch (err) {
+                        console.warn(`Gemini API (${model}) 네트워크 오류:`, err);
                     }
-                } catch (err) {
-                    console.warn('네트워크 또는 서버 호출 오류:', err);
-                }
-
-                if (attempt < retries - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+                    if (attempt < retries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 600 * (attempt + 1)));
+                    }
                 }
             }
             return null;
@@ -683,7 +697,7 @@ ${hasStandup ? standupRaw : '(비어있음 - 스탠드업 블록 생략)'}`;
             btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> 김석진 기자 스타일로 리포트 원고 생성`;
             
             if (isFallback) {
-                showToast('API 연결에 실패하여 기본 템플릿으로 정리되었습니다. Vercel 환경변수를 확인해주세요.', 'error');
+                showToast('API 응답 지연/오류로 기본 템플릿으로 정리되었습니다. 콘솔(F12)을 확인해주세요.', 'error');
             } else {
                 showToast('AI가 김석진 기자 스타일로 리포트 원고를 완성했습니다!', 'success');
             }
@@ -964,4 +978,45 @@ B tv 뉴스 김석진입니다.`;
             const titleMatch = rawText.match(/제목\s*:\s*(.+)/);
             const titleText = titleMatch ? titleMatch[1].trim() : "Btv뉴스_리포트원고";
 
-            const paragraphs =
+            const paragraphs = rawText.split('\n').map(line => {
+                const isBold = line.startsWith('제목') || line.startsWith('[앵커멘트]') || line.startsWith('[기사내용]') || line.startsWith('[스탠드업]') || line.includes('B tv 뉴스 김석진입니다');
+                return new Paragraph({
+                    space: { after: 120 },
+                    children: [
+                        new TextRun({
+                            text: line,
+                            bold: isBold,
+                            size: line.startsWith('제목') ? 28 : 22,
+                            font: "맑은 고딕"
+                        })
+                    ]
+                });
+            });
+
+            const doc = new Document({
+                sections: [{ children: paragraphs }]
+            });
+
+            try {
+                const blob = await Packer.toBlob(doc);
+                const safeFilename = titleText.substring(0, 22).replace(/[/\\?%*:|"<>]/g, '');
+                saveAs(blob, `[Btv뉴스_김석진]_${safeFilename}.docx`);
+                showToast('.DOCX 방송 원고 파일이 다운로드되었습니다.', 'success');
+            } catch (err) {
+                showToast('DOCX 생성 중 오류가 발생했습니다.', 'error');
+            }
+        }
+        window.downloadScriptDocx = downloadScriptDocx;
+
+        function openStyleGuideModal() {
+            document.getElementById('styleGuideModal').classList.remove('hidden');
+        }
+        window.openStyleGuideModal = openStyleGuideModal;
+
+        function closeStyleGuideModal() {
+            document.getElementById('styleGuideModal').classList.add('hidden');
+        }
+        window.closeStyleGuideModal = closeStyleGuideModal;
+    </script>
+</body>
+</html>
