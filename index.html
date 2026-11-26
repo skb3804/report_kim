@@ -408,43 +408,7 @@
             standup: `수천억 원을 들여 뚫은 대심도 도로가 개통과 동시에 거대한 병목 구간으로 전락할 위기에 놓였습니다.`
         };
 
-        const INITIAL_DEFAULT_RAW = `제목 : 만덕센텀 대심도 접속로...덕천나들목 '판박이'
-[앵커멘트]
-부산의 만성적인 교통난을 해소할 만덕센텀 도시고속화도로가 개통을 앞두고 있습니다. 그런데 접속도로 구조를 두고 개통 전부터 극심한 병목현상이 우려되고 있습니다. 어떻게 된 일일까요? 김석진 기자가 보도합니다.
-
-(만덕센텀 대심도 접속도로의 기형적 병목 구조로 개통 이후 극심한 교통 정체가 우려되고 있습니다.)
-
-[기사내용]
-{ 23일, 북구 만덕동 \n 만덕센텀고속화도로 접속 구간 }
-왕복 4차로 대심도 터널을 빠져나온 도로. 
-좁아지는 지상 접속부 앞에서 차선이 급격히 줄어듭니다.
-
-총사업비 7천900억 원이 투입된 만덕센텀 도시고속화도로입니다.
-센텀시티에서 만덕까지 10분대 주파를 목표로 개통을 앞두고 있습니다.
-
-하지만 만덕 방면 진출입로가 기존 상습 정체 구간과 곧바로 맞물립니다.
-
-{ 박민수 / 북구 만덕동 주민 \n "대심도 차량까지 합류하면 주차장 될 것" }
-[박민수 / 북구 만덕동 주민] "지금도 출퇴근 시간이면 만덕대로 일대가 꽉 막히는데 대심도 차량까지 합류하면 아예 주차장이 될 겁니다."
-
-{ CG IN }
-문제는 시간당 3천 대가 넘는 유입 차량입니다.
-접속부 병목이 풀리지 않으면 터널 내부까지 차량이 갇힐 수 있습니다.
-{ CG OUT }
-
-{ 김석진
-kimgija@sk.com }
-[스탠드업] 김석진 기자 / kimgija@sk.com
-수천억 원을 들여 뚫은 대심도 도로가 개통과 동시에 거대한 병목 구간으로 전락할 위기에 놓였습니다.
-
-{ 심환철 }
-부산시는 개통 전까지 신호체계 개선과 차로 확보에 나서겠다는 입장입니다.
-
-{ 최성호 / 부산시 도로계획과장 \n "접속부 가감속 차로 연장 등 보완 마련" }
-[전화 인터뷰] 최성호 / 부산시 도로계획과장 "개통 전까지 신호체계 최적화와 접속부 가감속 차로 연장 등 보완 대책을 마련하겠습니다."
-
-제2의 덕천나들목이라는 오명을 피할 실효성 있는 대책이 나올지 주목됩니다.
-B tv 뉴스 김석진입니다.`;
+        const INITIAL_DEFAULT_RAW = ``;
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
@@ -537,37 +501,32 @@ B tv 뉴스 김석진입니다.`;
         window.switchScriptView = switchScriptView;
 
         async function callGeminiAPI(prompt, systemPrompt, retries = 2) {
-            const modelCandidates = ["gemini-3-flash-preview", "gemini-2.5-flash"];
-            const apiKey = "AIzaSyAIRbukmGCtS1jjJMVe3tESPOoddnE0HbY";
+            // Vercel Serverless Function 엔드포인트 호출 (보안을 위해 API 키는 서버 환경변수에서 관리)
+            const apiUrl = '/api/gemini';
+            const payload = {
+                prompt: prompt,
+                systemPrompt: systemPrompt
+            };
 
-            for (const model of modelCandidates) {
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                const payload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] }
-                };
-
-                for (let attempt = 0; attempt < retries; attempt++) {
-                    try {
-                        const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        if (response.ok) {
-                            const data = await response.json();
-                            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-                            if (text) return text;
-                        } else {
-                            const errBody = await response.text().catch(() => '');
-                            console.warn(`Gemini API ${model} HTTP ${response.status}:`, errBody);
-                        }
-                    } catch (err) {
-                        console.warn(`Gemini API ${model} fallback:`, err);
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.text) return data.text;
+                    } else {
+                        const errBody = await response.text().catch(() => '');
+                        console.warn(`Vercel API HTTP ${response.status}:`, errBody);
                     }
-                    if (attempt < retries - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
-                    }
+                } catch (err) {
+                    console.warn(`Vercel API network fallback:`, err);
+                }
+                if (attempt < retries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
                 }
             }
             return null;
@@ -777,7 +736,20 @@ B tv 뉴스 김석진입니다.`;
         window.syncFromRawTextarea = syncFromRawTextarea;
 
         function renderFormattedScript(rawText) {
-            if (!rawText) return;
+            if (!rawText || !rawText.trim()) {
+                const statsBadge = document.getElementById('scriptStatsBadge');
+                if (statsBadge) statsBadge.innerText = '0자 / 예상 0초';
+                document.getElementById('pvHeadline').innerText = '';
+                const pvCamEl = document.getElementById('pvCameraman');
+                if (pvCamEl) pvCamEl.innerText = '-';
+                document.getElementById('pvAnchorMent').innerText = '';
+                document.getElementById('pvLeadContainer').classList.add('hidden');
+                document.getElementById('pvArticleBody').innerHTML = '';
+                setBadgeState('chkHeadline', false, '말줄임·따옴표 헤드라인');
+                setBadgeState('chkStandup', false, '자막·촬영 슈퍼 표기');
+                setBadgeState('chkClosing', false, '시그니처 클로징 적용');
+                return;
+            }
 
             // Update stats
             const cleanChars = rawText.replace(/\{[\s\S]*?\}|\[.*?\]|\s/g, '').length;
